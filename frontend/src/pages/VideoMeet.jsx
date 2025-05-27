@@ -13,7 +13,7 @@ import ScreenShareIcon from '@mui/icons-material/ScreenShare';
 import StopScreenShare from '@mui/icons-material/StopScreenShare';
 import ChatIcon from '@mui/icons-material/Chat'
 import YouTube from "react-youtube"; // npm install react-youtube
-import {server} from '../env'
+import server from '../env'
 
 // Server URL for the WebSocket connection
 
