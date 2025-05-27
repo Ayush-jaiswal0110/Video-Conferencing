@@ -13,12 +13,11 @@ import ScreenShareIcon from '@mui/icons-material/ScreenShare';
 import StopScreenShare from '@mui/icons-material/StopScreenShare';
 import ChatIcon from '@mui/icons-material/Chat'
 import YouTube from "react-youtube"; // npm install react-youtube
-
-
+import {server} from '../env'
 
 // Server URL for the WebSocket connection
 
-const server_url = "http://localhost:8000";
+const server_url = server;
 
 // Object to store peer connections
 var connections = {}
