@@ -44,36 +44,37 @@ export default function Authentication() {
   const [error, setError] = React.useState();
   const [message, setMessage] = React.useState();
   const [formState, setFormState] = React.useState();// 0 -> Login, 1 -> Signup
-  const [ open,setOpen] = React.useState(false); // Controls Snackbar visibility
+  const [open, setOpen] = React.useState(false); // Controls Snackbar visibility
   const [emailError, setEmailError] = React.useState(false);
   const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
-  
+
   // Access authentication functions from AuthContext
-  const {handleRegister, handleLogin} = React.useContext(AuthContext);
-  
+  const { handleRegister, handleLogin } = React.useContext(AuthContext);
+
   // Function to handle authentication logic
-  let handleAuth = async () =>{
-    try{
-      if(formState ===0){ // Sign In
+  let handleAuth = async () => {
+    try {
+      if (formState === 0) { // Sign In
 
         let resulr = await handleLogin(username, password)
 
       }
-      if(formState === 1){ // Sign Up
-         let result = await handleRegister(name, username, password);
-         console.log(result);
-         setUsername("")
-         setMessage(result)
-         setOpen(true);
-         setError("");
-         setFormState(0); // Switch back to login after successful registration
-         setPassword("")
+      if (formState === 1) { // Sign Up
+        let result = await handleRegister(name, username, password);
+        console.log(result);
+        setUsername("")
+        setMessage(result)
+        setOpen(true);
+        setError("");
+        setFormState(0); // Switch back to login after successful registration
+        setPassword("")
       }
-    } catch(err){
-      let message = (err.response.data.message); // Extract error message from API response
+    } catch (err) {
+      let message = err?.response?.data?.message || "Something went wrong";
       setError(message);
+
 
     }
   }
@@ -108,22 +109,22 @@ export default function Authentication() {
   };
 
   return (
-     // Authentication Card Component
+    // Authentication Card Component
     <Card variant="outlined">
 
-    {/* Toggle Between Sign In and Sign Up */}
-    <div>
-      <Button variant={formState === 0 ? "contained" : ""} onClick={()=>{setFormState(0)}}>Sign In</Button>
-      <Button variant={formState ===1 ? "contained" : ""} onClick={()=>{setFormState(1)}}>Sign Up</Button>
-    </div>
+      {/* Toggle Between Sign In and Sign Up */}
+      <div>
+        <Button variant={formState === 0 ? "contained" : ""} onClick={() => { setFormState(0) }}>Sign In</Button>
+        <Button variant={formState === 1 ? "contained" : ""} onClick={() => { setFormState(1) }}>Sign Up</Button>
+      </div>
 
-     {/* Title Display (Changes Based on Login/Signup) */}
+      {/* Title Display (Changes Based on Login/Signup) */}
       <Typography
         component="h1"
         variant="h4"
         sx={{ width: '100%', fontSize: 'clamp(2rem, 10vw, 2.15rem)' }}
       >
-        {formState ===0 ? <>Sign In</> : <>Sign Up</>}
+        {formState === 0 ? <>Sign In</> : <>Sign Up</>}
       </Typography>
 
       {/* Form Section */}
@@ -133,7 +134,7 @@ export default function Authentication() {
         noValidate
         sx={{ display: 'flex', flexDirection: 'column', width: '100%', gap: 2 }}
       >
-          {/* <TextField
+        {/* <TextField
             error={emailError}
             helperText={emailErrorMessage}
             id="email"
@@ -148,41 +149,41 @@ export default function Authentication() {
             variant="outlined"
             color={emailError ? 'error' : 'primary'}
           /> */}
-          {/* Name Field - Only Shown in Sign Up */}
-        {formState ===1 ?   <TextField
-            margin='normal'
-            id="Fullname"
-            label="Full name"
-            name="Fullname"
-            placeholder="Fullname"
-            value={name}
-            autoFocus
-            required
-            fullWidth
-            variant="outlined"
-            onChange={(e) => {setName(e.target.value)}}
-          /> : <></>}
+        {/* Name Field - Only Shown in Sign Up */}
+        {formState === 1 ? <TextField
+          margin='normal'
+          id="Fullname"
+          label="Full name"
+          name="Fullname"
+          placeholder="Fullname"
+          value={name}
+          autoFocus
+          required
+          fullWidth
+          variant="outlined"
+          onChange={(e) => { setName(e.target.value) }}
+        /> : <></>}
 
-             {/* Username Field */}
-           <TextField
-            margin='normal'
-            id="username"
-            label="username"
-            name="username"
-            placeholder="username"
-            value={username}
-            autoFocus
-            required
-            fullWidth
-            variant="outlined"
-            onChange={(e) => {setUsername(e.target.value)}}
-          />
+        {/* Username Field */}
+        <TextField
+          margin='normal'
+          id="username"
+          label="username"
+          name="username"
+          placeholder="username"
+          value={username}
+          autoFocus
+          required
+          fullWidth
+          variant="outlined"
+          onChange={(e) => { setUsername(e.target.value) }}
+        />
 
-         {/* Password Field */}
+        {/* Password Field */}
         <FormControl>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <FormLabel htmlFor="password">Password</FormLabel>
-            
+            <FormLabel htmlFor="password">Password</FormLabel>
+
           </Box>
           <TextField
             error={passwordError}
@@ -198,31 +199,31 @@ export default function Authentication() {
             fullWidth
             variant="outlined"
             color={passwordError ? 'error' : 'primary'}
-            onChange={(e) => {setPassword(e.target.value)}}
+            onChange={(e) => { setPassword(e.target.value) }}
           />
         </FormControl>
 
-          {/* Error Message Display */}
-        <p style={{color: "red"}}>{error}</p>
+        {/* Error Message Display */}
+        <p style={{ color: "red" }}>{error}</p>
 
 
         {/* Submit Button */}
         <Button
-         type="button" 
-         fullWidth 
-         variant="contained" 
-         onClick={handleAuth}>
-          {formState ===0 ? "Log In" : "Register"}
+          type="button"
+          fullWidth
+          variant="contained"
+          onClick={handleAuth}>
+          {formState === 0 ? "Log In" : "Register"}
         </Button>
-       
+
       </Box>
-           {/* Snackbar for Success Message */}
-               <Snackbar 
-                 open={open}
-                 autoHideDuration={4000}
-                 message={message}
-               
-               />
+      {/* Snackbar for Success Message */}
+      <Snackbar
+        open={open}
+        autoHideDuration={4000}
+        message={message}
+
+      />
     </Card>
   );
 }
