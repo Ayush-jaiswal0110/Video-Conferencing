@@ -8,8 +8,10 @@ let socketToRoom = {};
 let sharedVideoByRoom = {};
 
 const extractMeetingCode = (room) => {
-  return room?.split("/").pop(); // returns "hjclass" from "http://localhost:3000/hjclass"
+  if (!room) return null;
+  return room.split("/").pop(); // Extracts 'abc123' from '/abc123' or full URL
 };
+
 
 const connectToSocket = (server) => {
   const io = new Server(server, {
