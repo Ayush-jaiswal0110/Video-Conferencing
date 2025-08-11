@@ -29,26 +29,13 @@ Users can create or join rooms, share YouTube links, chat, and control playback 
 - MongoDB with Mongoose
 
 ---
-## 🗂️ Project Structure
-Video-Conferencing/
-│
-├── backend/               # Express + Socket.IO server
-│   ├── models/             # MongoDB models
-│   ├── routes/             # API routes
-│   ├── socket/             # Socket.IO event handling
-│   └── server.js           # Server entry point
-│
-├── frontend/              # React frontend
-│   ├── components/         # UI components
-│   ├── pages/              # App pages
-│   └── App.js              # Main entry
-│
-└── README.md
----
+
 
 ### 🤝 Contributing
 Pull requests are welcome!
 If you find bugs or have suggestions, please open an issue.
+
+---
 
 📖 Usage
 Create/Join a Meeting
@@ -74,6 +61,7 @@ Playback Sync
 Play/Pause/Seek is synced for all participants
 
 
+---
 
 👨‍💻 Author
 Ayush Jaiswal
@@ -81,7 +69,7 @@ Ayush Jaiswal
 GitHub: Ayush-jaiswal0110
 
 
-
+---
 
 ## 📦 Installation & Setup
 
@@ -108,6 +96,23 @@ npm run dev
 # Frontend
 cd frontend
 npm start
+
+---
+## 🗂️ Project Structure
+Video-Conferencing/
+│
+├── backend/               # Express + Socket.IO server
+│   ├── models/             # MongoDB models
+│   ├── routes/             # API routes
+│   ├── socket/             # Socket.IO event handling
+│   └── server.js           # Server entry point
+│
+├── frontend/              # React frontend
+│   ├── components/         # UI components
+│   ├── pages/              # App pages
+│   └── App.js              # Main entry
+│
+└── README.md
 
 
 
