@@ -64,14 +64,20 @@ For two browsers on one computer, pause YouTube, use headphones, mute one browse
 
 To test Gemini:
 
-1. Put `GEMINI_API_KEY` in the ignored `backend/.env`; keep `.env.example` free of credentials. `GEMINI_LIVE_MODEL` defaults to `gemini-3.8-live` and can be changed to a Live model available to your project.
-2. Restart the backend, open `/agent`, choose **Gemini Live**, and click **Start voice test**.
-3. Click **Speak**, say a short sentence, then **Finish turn**. The mic is disabled outside your turn. Listen to the response and repeat. **End test** releases the microphone and connection; tests also stop after 9 minutes.
-4. Download measurements for your test. Gemini timing measures sending `activityEnd` after the final PCM chunk through receipt of the first response audio chunk. It excludes speaker playout and uses a different boundary from the OpenAI metric. Neither is a Teams benchmark.
+1. Put GEMINI_API_KEY in the ignored backend/.env. GEMINI_LIVE_MODEL defaults to gemini-3.8-live; choose a Live model available to your project. Keep credentials out of .env.example.
+2. Restart the backend and frontend, open /agent, choose **Gemini Live**, and click **Start interview**.
+3. The agent introduces itself and asks the first practice question automatically. Speak naturally and pause after your answer. Automatic voice detection waits for about 1 second of silence; thinking pauses may need tuning.
+4. The mic stays live during replies so you can interrupt. **Mute microphone** stops capture/upload and sends audioStreamEnd; **Unmute microphone** resumes. **End interview** releases devices. This practice test still stops after 9 minutes.
+5. Download measurements. Timing estimates the last voiced microphone chunk using local sound energy and measures receipt of the first response audio, including server pause-detection delay. Playback delay additionally includes browser scheduling, not physical speaker output. Noise/echo affect estimates, and unqualified turns are omitted. These values use different boundaries from the OpenAI metrics; neither is a Teams benchmark.
 
-Gemini uses the [Live WebSocket API](https://ai.google.dev/api/live) and [one-use ephemeral tokens](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens). The permanent key stays on the backend. PCM microphone audio streams directly to Google; responses play through Web Audio. API access and quota are controlled by the Google project. OpenAI error messages now distinguish recognized billing/quota errors from temporary rate limits; an unknown HTTP 429 is identified as ambiguous instead of promising that retrying will fix it.
+Gemini uses the [Live WebSocket API](https://ai.google.dev/api/live) and [one-use ephemeral tokens](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens). The permanent key stays on the backend. PCM microphone audio streams directly to Google while connected and unmuted, including during agent playback. API access and quota depend on the Google project. OpenAI errors distinguish recognized billing/quota failures from temporary rate limits.
 
-The browser regression also checks mic-only audio energy and advancing unmuted playback, plus a mocked Gemini handshake/audio turn and failure cleanup. Set `TEST_PORT` to use another port, and build with the same `REACT_APP_API_URL` first. No automated check sends real microphone audio or consumes live AI credits.
+The backend locks automatic VAD (1,000 ms silence, low speech-start/end sensitivity) and interruption handling into the temporary token setup. Capture starts only after setupComplete. The browser sends continuous audio without manual activityStart/activityEnd messages and requests the first question once. On interruption it discards queued playback; on mute it stops audio upload. Candidate and interviewer transcripts appear on the page and are not persisted by this app. Completed agent turns are counted, excluding interrupted turns. This is a practice conversation, not a scored interview or durable question tracker.
+
+Test a short answer, a thinking pause, an interruption during a question, mute/unmute, and End interview. Use headphones. End should release the microphone indicator. The model finishing a turn is separate from queued speaker playback ending.
+
+The 9-minute limit remains intentional for this prototype. Longer production interviews still need session resumption, durable progress and reconnect recovery. Automatic speech boundaries and follow-up quality require live testing. Browser tests mock server replies, verify continuous capture and mute/resume, and consume no API credits. Set TEST_GEMINI_ONLY=true and TEST_PORT=8010 to run the AI browser checks without a live backend; requests are mocked. Full meeting regressions still require a build configured with the test server's API URL.
+
 # 🎥 Video Conferencing & Shared YouTube Watching App
 
 A **real-time video conferencing web application** with **integrated chat** and **synchronized YouTube watching**.  

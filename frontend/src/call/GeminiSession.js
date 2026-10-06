@@ -1,12 +1,14 @@
 import server from '../env';
-import { requireMediaDevices } from './CallSession';
+import SpeechTiming from './SpeechTiming';
+import { mediaError, requireMediaDevices } from './CallSession';
 import { encodePcm, decodePcm } from './pcm';
 
 export default class GeminiSession {
   constructor(callbacks = {}) {
     this.callbacks = callbacks; this.controller = new AbortController();
     this.sources = new Set(); this.closed = false; this.ready = false;
-    this.phase = 'connecting'; this.pending = null; this.playAt = 0;
+    this.muted = false; this.responseInProgress = true; this.playAt = 0;
+    this.timing = new SpeechTiming(); this.responseSample = null;
   }
   status(text) { this.callbacks.onStatus?.(text); }
   fail(message) { if (!this.closed) { this.close(); this.callbacks.onError?.(message); } }
@@ -36,15 +38,10 @@ export default class GeminiSession {
       this.capture.port.onmessage = ({ data }) => {
         if (this.closed) return;
         try {
-          if (data.samples && ['speaking', 'finishing'].includes(this.phase)) {
+          if (data.samples && this.ready && !this.muted) {
+            const level = this.timing.observe(data.samples, this.input.sampleRate, performance.now());
+            this.callbacks.onLevel?.(level);
             this.send({ realtimeInput: { audio: { data: encodePcm(data.samples), mimeType: `audio/pcm;rate=${this.input.sampleRate}` } } });
-          }
-          if (data.finished && this.phase === 'finishing') {
-            clearTimeout(this.flushTimer);
-            this.pending = performance.now();
-            this.send({ realtimeInput: { activityEnd: {} } });
-            this.phase = 'waiting'; this.status('Waiting for Gemini…');
-            this.responseTimer = setTimeout(() => this.fail('Gemini did not respond within 45 seconds. Start a new test.'), 45000);
           }
         } catch (e) { this.fail(e.message); }
       };
@@ -70,31 +67,49 @@ export default class GeminiSession {
       };
       socket.onerror = () => this.fail('Gemini connection failed. Check API access, network and browser settings.');
       socket.onclose = event => this.fail(`Gemini connection closed (code ${event.code}). Check model access and quota, then start a new test.`);
-      this.limit = setTimeout(() => { this.close(); this.callbacks.onEnd?.(); }, 9 * 60 * 1000);
-    } catch (e) { this.fail(e.message); }
+      this.limit = setTimeout(() => { this.close(); this.callbacks.onEnd?.('Practice session ended after 9 minutes. Start a new interview to continue.'); }, 9 * 60 * 1000);
+    } catch (e) { this.fail(mediaError(e)); }
   }
   receive(event, started) {
     if (event.error) return this.fail('Gemini reported a session error. Check model access and quota.');
     if (event.setupComplete) {
-      clearTimeout(this.timeout); this.ready = true; this.phase = 'ready';
-      this.callbacks.onReady?.(Math.round(performance.now() - started)); this.status('Ready — click Speak');
+      if (this.ready) return;
+      clearTimeout(this.timeout); this.ready = true;
+      this.stream.getAudioTracks().forEach(t => { t.enabled = !this.muted; });
+      if (!this.muted) this.capture.port.postMessage('start');
+      this.callbacks.onReady?.(Math.round(performance.now() - started));
+      this.status('The interviewer is preparing the first question…');
+      this.send({ clientContent: { turns: [{ role: 'user', parts: [{ text: 'Start the practice interview now. Introduce yourself and ask your first question.' }] }], turnComplete: true } });
     }
     const content = event.serverContent;
     if (!content) return;
-    if (content.interrupted) { this.clearPlayback(); this.pending = null; }
+    if (content.interrupted) {
+      this.clearPlayback(); this.responseInProgress = false; this.responseSample = null; this.interruptedTurn = true;
+      this.status(this.muted ? 'Microphone muted' : 'Listening — go ahead');
+    }
+    if (content.inputTranscription?.text) this.callbacks.onInputTranscript?.(content.inputTranscription.text);
     if (content.outputTranscription?.text) this.callbacks.onTranscript?.(content.outputTranscription.text);
     for (const part of content.modelTurn?.parts || []) {
       const audio = part.inlineData;
       if (!audio?.mimeType?.startsWith('audio/pcm') || !audio.data) continue;
-      if (this.pending !== null) {
-        this.callbacks.onSample?.(Math.round(performance.now() - this.pending)); this.pending = null;
-        clearTimeout(this.responseTimer);
+      // Greeting and subsequent chunks of the same response cannot create samples.
+      if (!this.responseInProgress) {
+        const delay = this.timing.consume(performance.now());
+        this.responseSample = delay === null ? null : { receivedAudioMs: delay, estimatedPlaybackMs: null };
       }
-      this.play(audio); this.status('Gemini speaking');
+      this.responseInProgress = true; this.interruptedTurn = false;
+      const playbackDelay = this.play(audio);
+      if (this.responseSample) {
+        this.callbacks.onSample?.({ ...this.responseSample, estimatedPlaybackMs: this.responseSample.receivedAudioMs + Math.round(playbackDelay || 0) });
+        this.responseSample = null;
+      }
+      this.status(this.muted ? 'Interviewer speaking · microphone muted' : 'Interviewer speaking — you can interrupt');
     }
     if (content.turnComplete) {
-      clearTimeout(this.responseTimer); this.pending = null; this.phase = 'ready';
-      this.callbacks.onReady?.(); this.status('Ready — click Speak for another turn');
+      this.responseInProgress = false; this.responseSample = null;
+      if (!this.interruptedTurn) { this.timing.reset(); this.callbacks.onTurn?.(); }
+      this.interruptedTurn = false;
+      if (!this.sources.size) this.status(this.muted ? 'Microphone muted' : 'Listening — answer when ready');
     }
   }
   play(audio) {
@@ -105,27 +120,31 @@ export default class GeminiSession {
     if (this.playAt - this.output.currentTime > 30) throw new Error('Audio playback backlog');
     const buffer = this.output.createBuffer(1, samples.length, rate); buffer.copyToChannel(samples, 0);
     const source = this.output.createBufferSource(); source.buffer = buffer; source.connect(this.output.destination);
-    source.onended = () => { this.sources.delete(source); source.disconnect(); };
+    source.onended = () => {
+      this.sources.delete(source); source.disconnect();
+      if (!this.closed && !this.sources.size && !this.responseInProgress) this.status(this.muted ? 'Microphone muted' : 'Listening — answer when ready');
+    };
     this.sources.add(source); this.playAt = Math.max(this.playAt, this.output.currentTime + .02);
+    const playbackDelay = (this.playAt - this.output.currentTime) * 1000;
     source.start(this.playAt); this.playAt += buffer.duration;
+    return playbackDelay;
   }
-  async speak() {
-    if (this.closed || !this.ready || this.phase !== 'ready') return;
+  async setMuted(muted) {
+    if (this.closed || !this.ready || this.muted === muted) return;
+    this.muted = muted; this.timing.reset(); this.callbacks.onLevel?.(0);
+    this.stream.getAudioTracks().forEach(t => { t.enabled = !muted; });
     try {
-      this.phase = 'starting';
-      await Promise.all([this.input.resume(), this.output.resume()]);
-      if (this.closed) return;
-      this.clearPlayback(); this.pending = null;
-      this.send({ realtimeInput: { activityStart: {} } });
-      this.stream.getAudioTracks().forEach(t => { t.enabled = true; });
-      this.phase = 'speaking'; this.capture.port.postMessage('start'); this.status('Listening — click Finish turn when done');
+      if (muted) {
+        this.capture.port.postMessage('stop');
+        this.send({ realtimeInput: { audioStreamEnd: true } });
+        this.status('Microphone muted');
+      } else {
+        await Promise.all([this.input.resume(), this.output.resume()]);
+        if (this.closed || this.muted) return;
+        this.capture.port.postMessage('start');
+        this.status('Listening — answer when ready');
+      }
     } catch (e) { this.fail(e.message); }
-  }
-  finish() {
-    if (this.closed || this.phase !== 'speaking') return;
-    this.phase = 'finishing'; this.stream.getAudioTracks().forEach(t => { t.enabled = false; });
-    this.capture.port.postMessage('finish');
-    this.flushTimer = setTimeout(() => this.fail('Microphone capture stalled. Start a new test.'), 3000);
   }
   clearPlayback() {
     for (const source of this.sources) { try { source.stop(); source.disconnect(); } catch {} }
@@ -134,7 +153,7 @@ export default class GeminiSession {
   close() {
     if (this.closed) return;
     this.closed = true; this.ready = false; this.controller.abort();
-    for (const timer of [this.timeout, this.limit, this.responseTimer, this.flushTimer]) clearTimeout(timer);
+    for (const timer of [this.timeout, this.limit]) clearTimeout(timer);
     if (this.socket) { this.socket.onopen = this.socket.onmessage = this.socket.onerror = this.socket.onclose = null; this.socket.close(); }
     if (this.capture) { this.capture.port.onmessage = null; this.capture.disconnect(); this.capture.port.close(); }
     this.source?.disconnect(); this.stream?.getTracks().forEach(t => t.stop()); this.clearPlayback();

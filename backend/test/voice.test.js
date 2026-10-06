@@ -22,7 +22,10 @@ test('Gemini issues only a restricted single-use token, checks auth and handles 
     assert.equal(options.headers['x-goog-api-key'], 'backend-only-test-key');
     const body = JSON.parse(options.body); assert.equal(body.uses, 1);
     assert.deepEqual(body.bidiGenerateContentSetup.generationConfig.responseModalities, ['AUDIO']);
-    assert.equal(body.bidiGenerateContentSetup.realtimeInputConfig.automaticActivityDetection.disabled, true);
+    assert.equal(body.bidiGenerateContentSetup.realtimeInputConfig.automaticActivityDetection.disabled, false);
+    assert.equal(body.bidiGenerateContentSetup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs, 1000);
+    assert.equal(body.bidiGenerateContentSetup.realtimeInputConfig.activityHandling, 'START_OF_ACTIVITY_INTERRUPTS');
+    assert.deepEqual(body.bidiGenerateContentSetup.inputAudioTranscription, {});
     assert.ok(Date.parse(body.expireTime) - Date.now() <= 600000);
     return fail ? new Response('PRIVATE', { status: 429 }) : Response.json({ name: 'auth_tokens/test' });
   } }));

@@ -96,7 +96,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await denied.evaluate(() => { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('Denied', 'NotAllowedError'); }; });
     await denied.getByRole('button', { name: 'Enable camera & microphone', exact: true }).click();
     await denied.getByRole('alert').filter({ hasText: 'blocked' }).waitFor();
-    await join(denied, 'Guest', true);
+    if (!process.env.TEST_GEMINI_ONLY) await join(denied, 'Guest', true);
     await denied.goto(base + '/agent');
     await denied.getByRole('heading', { name: 'Talk with an AI agent' }).waitFor();
     await denied.screenshot({ path: 'test-results/agent.png', fullPage: true });
@@ -126,40 +126,51 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     }
     await denied.getByLabel('Voice provider').selectOption('gemini');
     await denied.route('**/api/v1/agent/gemini-token', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Gemini is not configured.' }) }));
-    await denied.getByRole('button', { name: 'Start voice test', exact: true }).click();
+    await denied.getByRole('button', { name: 'Start interview', exact: true }).click();
     await denied.getByRole('alert').filter({ hasText: 'Gemini is not configured.' }).waitFor().catch(async error => { console.log('Gemini failure diagnostic:', await denied.locator('main').innerText(), errors); throw error; });
     assert.equal(await denied.evaluate(() => window.__streams.every(stream => stream.getTracks().every(t => t.readyState === 'ended'))), true);
     console.log('PASS: Gemini provider selection and failure releases microphone');
     await denied.unroute('**/api/v1/agent/gemini-token');
     await denied.route('**/api/v1/agent/gemini-token', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ token: 'auth_tokens/test', setup: { model: 'models/test', generationConfig: { responseModalities: ['AUDIO'] } } }) }));
-    const geminiMessages = [];
+    const geminiMessages = []; let audioChunks = 0;
     await denied.routeWebSocket(/generativelanguage.googleapis.com/, socket => {
+      const reply = text => socket.send(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: Buffer.alloc(4800).toString('base64') } }] }, outputTranscription: { text }, turnComplete: true } }));
       socket.onMessage(raw => {
         const message = JSON.parse(raw); geminiMessages.push(message);
         if (message.setup) socket.send(JSON.stringify({ setupComplete: {} }));
-        if (message.realtimeInput?.activityEnd) socket.send(JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm;rate=24000', data: Buffer.alloc(4800).toString('base64') } }] }, outputTranscription: { text: 'Hello from the test agent.' }, turnComplete: true } }));
+        if (message.clientContent) reply('Welcome. Tell me about yourself.');
+        if (message.realtimeInput?.audio && ++audioChunks === 6) {
+          socket.send(JSON.stringify({ serverContent: { interrupted: true } }));
+          socket.send(JSON.stringify({ serverContent: { inputTranscription: { text: 'I am practising for an interview.' } } }));
+          reply('Tell me about a project you worked on.');
+        }
       });
     });
-    // Install WebSocket interception before navigation so no real provider socket is opened.
     await denied.goto(base + '/agent');
     await denied.getByLabel('Voice provider').selectOption('gemini');
-    await denied.getByRole('button', { name: 'Start voice test', exact: true }).click();
-    await denied.getByRole('button', { name: 'Speak', exact: true }).click().catch(async error => { console.log('Gemini connect diagnostic:', await denied.locator('main').innerText(), errors, geminiMessages.map(m => Object.keys(m))); throw error; });
-    await denied.getByRole('status').filter({ hasText: 'Listening' }).waitFor();
-    await denied.waitForFunction(() => window.__streams.some(stream => stream.getAudioTracks().some(t => t.readyState === 'live' && t.enabled)));
-    const deadline = Date.now() + 5000;
-    while (!geminiMessages.some(m => m.realtimeInput?.audio) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+    await denied.getByRole('button', { name: 'Start interview', exact: true }).click();
+    await denied.getByText(/Welcome. Tell me about yourself/).waitFor();
+    await denied.getByText(/Tell me about a project you worked on/).waitFor();
+    await denied.getByText(/I am practising for an interview/).waitFor();
     assert.ok(geminiMessages.some(m => m.realtimeInput?.audio?.mimeType === 'audio/pcm;rate=16000'));
-    await denied.getByRole('button', { name: 'Finish turn', exact: true }).click();
-    await denied.getByText('Hello from the test agent.', { exact: true }).waitFor();
-    await denied.getByText(/1 measured turns/).waitFor();
-    assert.ok(geminiMessages.findIndex(m => m.realtimeInput?.activityStart) < geminiMessages.findIndex(m => m.realtimeInput?.audio));
-    const endIndex = geminiMessages.findIndex(m => m.realtimeInput?.activityEnd);
-    assert.ok(endIndex > geminiMessages.findIndex(m => m.realtimeInput?.audio));
+    assert.equal(geminiMessages.filter(m => m.clientContent).length, 1);
+    assert.equal(geminiMessages.some(m => m.realtimeInput?.activityStart || m.realtimeInput?.activityEnd), false);
+    assert.equal(await denied.getByRole('button', { name: 'Finish turn', exact: true }).count(), 0);
+    await denied.getByRole('button', { name: 'Mute microphone', exact: true }).click();
+    await denied.getByText('Microphone muted — audio is not being sent').waitFor();
     assert.equal(await denied.evaluate(() => window.__streams.every(stream => stream.getAudioTracks().every(t => !t.enabled || t.readyState === 'ended'))), true);
-    await denied.getByRole('button', { name: 'End test', exact: true }).click();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const mutedCount = audioChunks;
+    await new Promise(resolve => setTimeout(resolve, 400)); assert.equal(audioChunks, mutedCount);
+    assert.ok(geminiMessages.some(m => m.realtimeInput?.audioStreamEnd));
+    await denied.getByRole('button', { name: 'Unmute microphone', exact: true }).click();
+    const deadline = Date.now() + 5000;
+    while (audioChunks === mutedCount && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+    assert.ok(audioChunks > mutedCount);
+    await denied.screenshot({ path: 'test-results/gemini-handsfree.png', fullPage: true });
+    await denied.getByRole('button', { name: 'End interview', exact: true }).click();
     assert.equal(await denied.evaluate(() => window.__streams.every(stream => stream.getTracks().every(t => t.readyState === 'ended'))), true);
-    console.log('PASS: Gemini mock handshake, worklet PCM upload, turn ordering, audio response, latency count and cleanup');
+    console.log('PASS: Gemini hands-free opening question, continuous PCM, automatic mocked replies, interruption, transcripts, mute/resume and cleanup');
     assert.deepEqual(errors, []);
     console.log('PASS: permissions-denied recovery, AI page and no uncaught browser errors');
   } finally { await browser.close(); await new Promise(resolve => io.close(resolve)); }

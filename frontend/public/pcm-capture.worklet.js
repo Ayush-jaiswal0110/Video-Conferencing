@@ -4,6 +4,7 @@ class PcmCapture extends AudioWorkletProcessor {
     super(); this.active = false; this.samples = [];
     this.port.onmessage = ({ data }) => {
       if (data === 'start') { this.samples = []; this.active = true; }
+      if (data === 'stop') { this.active = false; this.samples = []; }
       if (data === 'finish') {
         this.active = false; this.flush(); this.port.postMessage({ finished: true });
       }

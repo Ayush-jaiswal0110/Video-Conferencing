@@ -15,8 +15,13 @@ export function createGeminiRouter({ fetchImpl = globalThis.fetch, auth = author
     const model = 'models/' + (process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live').replace(/^models\//, '');
     const config = {
       generationConfig: { responseModalities: ['AUDIO'] },
-      systemInstruction: { parts: [{ text: 'You are Quikhire’s AI voice test assistant. Identify yourself as AI. Respond briefly, in one or two sentences, to help test voice responsiveness. Do not evaluate candidates or make hiring decisions.' }] },
-      realtimeInputConfig: { automaticActivityDetection: { disabled: true } },
+      systemInstruction: { parts: [{ text: 'You are Quikhire’s AI practice interviewer. Introduce yourself clearly as AI and explain this is a practice interview. Begin by asking the candidate to introduce themselves and describe the role they are preparing for. Ask one relevant question at a time, listen to the answer, then ask a brief follow-up or the next question. Allow thinking time. If the candidate asks for more time, acknowledge briefly and wait. If interrupted, listen and respond to the new request. Keep your spoken turns short. After about five main questions, offer a short recap and ask whether they want to continue or finish. Do not make hiring decisions or claim to score suitability.' }] },
+      realtimeInputConfig: {
+        automaticActivityDetection: { disabled: false, silenceDurationMs: 1000, prefixPaddingMs: 100,
+          startOfSpeechSensitivity: 'START_SENSITIVITY_LOW', endOfSpeechSensitivity: 'END_SENSITIVITY_LOW' },
+        activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
+      },
+      inputAudioTranscription: {},
       outputAudioTranscription: {},
     };
     try {
