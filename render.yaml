@@ -1,0 +1,16 @@
+# For Blueprint-managed deployments. Existing manually created sites must add
+# the same rewrite in Render's Redirects/Rewrites settings (see README.md).
+services:
+  - type: web
+    name: video-conferencing-v179
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://video-conferencing-backend-carn.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

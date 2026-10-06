@@ -2,6 +2,25 @@
 
 React provides the lobby, participant tiles and voice test page. Express/Socket.IO handles room membership, chat, YouTube synchronization and WebRTC signaling. Camera/microphone media travels directly between browsers, not through Socket.IO. MongoDB is used for accounts, history and saved YouTube links. The voice lab connects browser audio to OpenAI Realtime over WebRTC; the backend exchanges the initial SDP without exposing its API key.
 
+## Render: fix Not Found when refreshing a page
+
+The frontend uses React Router. Direct requests and refreshes on /random, /agent, /auth, or another room URL must load index.html so React can render that route.
+
+For the **existing frontend static site** at https://video-conferencing-v179.onrender.com:
+
+1. Open the frontend service in the Render dashboard.
+2. Open **Redirects/Rewrites** and add a rule:
+   - **Source:** `/*`
+   - **Destination:** `/index.html`
+   - **Action:** **Rewrite** (not Redirect).
+3. Save the rule. Open /random and /agent directly, then refresh each page. The app should load and the address should stay on the requested route.
+
+Apply this to the frontend static site, not the Express backend. Render continues serving existing JavaScript, CSS and image files normally.
+
+The repository's `render.yaml` includes this rule for Blueprint deployments, with frontend as the root directory and build as the publish directory. **Pushing this file alone does not update a manually created Render service.** Use the dashboard steps above for the existing site, or explicitly link/sync a Blueprint. Before adopting the Blueprint, match its service name to the actual frontend service name in your Render dashboard; the onrender.com hostname can differ from the service name.
+
+Reference: [Render's React Router deployment instructions](https://render.com/docs/deploy-create-react-app#using-client-side-routing).
+
 ## Run locally
 
 Use Node.js 22.9 or later. Install dependencies with `npm install` in `backend` and `frontend` if needed.
