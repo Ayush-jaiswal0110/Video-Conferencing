@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import mongoose from 'mongoose';
-import cors from 'cors';
+import { frontendCors } from './cors.js';
 import connectToSocket from './controllers/socketManager.js';
 import userRoutes from './routes/users.routes.js';
 import meetingRoutes from './routes/meetingRoutes.js';
@@ -12,7 +12,7 @@ const app = express();
 const server = createServer(app);
 connectToSocket(server);
 const PORT = process.env.PORT || 8000;
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN?.split(',') || '*' }));
+app.use(frontendCors());
 app.use(express.json({ limit: '40kb' }));
 app.use(express.urlencoded({ limit: '40kb', extended: true }));
 app.get('/health', (req, res) => res.json({ ok: true, database: mongoose.connection.readyState === 1 }));

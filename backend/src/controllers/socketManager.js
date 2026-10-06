@@ -1,4 +1,5 @@
 import { Server } from 'socket.io';
+import { corsOptions } from '../cors.js';
 import { Meeting } from '../models/meeting.model.js';
 
 export function extractMeetingCode(raw) {
@@ -8,7 +9,7 @@ export function extractMeetingCode(raw) {
 }
 
 export default function connectToSocket(server) {
-  const io = new Server(server, { cors: { origin: process.env.FRONTEND_ORIGIN?.split(',') || '*', methods: ['GET', 'POST'] } });
+  const io = new Server(server, { cors: corsOptions() });
   const rooms = new Map();
   const leave = socket => {
     const room = socket.data.room;

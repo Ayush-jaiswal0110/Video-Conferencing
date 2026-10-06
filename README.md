@@ -205,3 +205,18 @@ Video-Conferencing/
 ---
 
 
+
+## Render deployment: CORS and AI requests
+
+For the backend service video-conferencing-backend-carn on Render, set:
+
+- FRONTEND_ORIGIN=https://video-conferencing-v179.onrender.com
+- NODE_ENV=production
+- GEMINI_API_KEY to your Gemini API key (backend environment only).
+- MONGODB_URI to your account database connection string (backend environment only).
+
+For the frontend service, set REACT_APP_API_URL=https://video-conferencing-backend-carn.onrender.com and rebuild after changes. Render environment settings are separate from your local .env. Save backend environment changes and redeploy/restart the backend service. A localhost-only FRONTEND_ORIGIN will not allow the deployed site. If both origins are needed, use https://video-conferencing-v179.onrender.com,http://localhost:3000.
+
+The shared HTTP/Socket.IO CORS configuration trims whitespace and normalizes URLs to origins. Production defaults to the known deployed frontend when no origin is configured. An explicit FRONTEND_ORIGIN overrides that default. Preflight OPTIONS requests are handled before authentication; Authorization and Content-Type are allowed. An authenticated AI route still requires sign-in in production; ALLOW_GUEST_AGENT does not bypass that on Render.
+
+To diagnose: GET /health should return 200. An OPTIONS request to /api/v1/agent/gemini-token with Origin: https://video-conferencing-v179.onrender.com, Access-Control-Request-Method: POST, and Access-Control-Request-Headers: authorization must return Access-Control-Allow-Origin matching that origin. A 204 with no allow-origin header means the configured allowlist does not match. A Render error page or 502/503 without CORS headers instead requires checking service startup, logs or availability.
