@@ -22,7 +22,7 @@ export default function LandingPage() {
             </div>
 
             {/* Navigation Links */}
-            <div className="navlist">
+            <div className="navlist"><Link to="/agent">Talk with AI agent</Link>
                 <p onClick={()=>{
                     router("/random");
                 }} >Join as Guest</p>

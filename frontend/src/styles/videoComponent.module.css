@@ -1,174 +1,31 @@
-.meetVideoContainer {
-  position: relative;
-  height: 100vh;
-  background: hsl(209, 88%, 13%);
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-}
-
-/* Video conference area */
-.conferenceView {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start; /* Top-left alignment */
-  align-items: flex-start;
-  padding: 10px;
-  gap: 10px;
-  overflow-y: auto;
-}
-
-/* Each remote user video box */
-.conferenceView > div {
-  flex: 0 1 auto;
-  width: 250px;
-  height: 140px;
-  position: relative;
-  cursor: pointer;
-}
-
-.conferenceView > div > video {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: 10px;
-  background: black;
-  object-fit: cover;
-}
-
-/* Local video: draggable and fixed in bottom left */
-.meetUserVideo {
-  position: fixed;
-  bottom: 80px;
-  left: 10px;
-  width: 200px;
-  height: 112.5px; /* 16:9 aspect ratio */
-  border-radius: 15px;
-  border: 2px solid white;
-  z-index: 1000;
-  background: black;
-  object-fit: cover;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  cursor: move; /* Shows draggable hint */
-}
-
-/* Controls at the bottom center */
-.buttonContainers {
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 25px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 10px 20px;
-  border-radius: 40px;
-  z-index: 1001;
-  align-items: center;
-}
-
-.buttonContainers svg {
-  font-size: 2.5rem;
-  color: white;
-  cursor: pointer;
-}
-
-/* Chat panel */
-.chatRoom {
-  position: fixed;
-  right: 0;
-  top: 60px;
-  width: 320px;
-  max-width: 80vw;
-  height: calc(100vh - 70px);
-  background-color: white;
-  border-radius: 10px 0 0 10px;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  z-index: 1002;
-  padding: 20px;
-}
-
-/* Chat messages area */
-.chattingDisplay {
-  flex: 1;
-  overflow-y: auto;
-  margin-bottom: 15px;
-  padding-right: 10px;
-}
-
-/* Input area for chat */
-.chattingArea {
-  display: flex;
-  gap: 10px;
-}
-
-.remoteVideo {
-  width: 300px;
-  height: 169px; /* 16:9 aspect ratio */
-  margin: 5px;
-  border-radius: 10px;
-  object-fit: cover;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
-  transition: transform 0.2s ease;
-}
-
-.remoteVideo:hover {
-  transform: scale(1.02);
-}
-
-
-/* Responsive adjustments */
-@media (max-width: 1024px) {
-  .conferenceView > div {
-    width: 200px;
-    height: 112.5px;
-  }
-
-  .chatRoom {
-    width: 280px;
-    height: calc(100vh - 60px);
-  }
-}
-
-@media (max-width: 768px) {
-  .meetUserVideo {
-    width: 140px;
-    height: 78.75px;
-    bottom: 70px;
-  }
-
-  .buttonContainers {
-    gap: 15px;
-    padding: 8px 15px;
-  }
-
-  .conferenceView > div {
-    width: 100%;
-    height: auto;
-  }
-
-  .chatRoom {
-    position: fixed;
-    bottom: 60px;
-    top: auto;
-    width: 100vw;
-    height: 40vh;
-    border-radius: 10px 10px 0 0;
-    right: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .buttonContainers svg {
-    font-size: 2rem;
-  }
-
-  .chatRoom {
-    height: 35vh;
-  }
-}
+.page { min-height: 100vh; background: #f4f7fb; color: #182d43; padding: 24px; box-sizing: border-box; }
+.header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 24px; }
+.header p { margin: 8px 0; color: #53677b; }
+.header a { color: #174ec4; }
+.lobby { max-width: 1080px; margin: 48px auto; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.lobby h1 { font-size: 32px; }
+.lobby p { line-height: 1.6; }
+.lobby > div > :global(.MuiTextField-root) { margin-bottom: 20px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.notice { padding: 16px; background: #fff0d4; color: #684507; border-radius: 10px; margin: 16px 0; line-height: 1.5; }
+.meetingBody { display: flex; gap: 24px; align-items: flex-start; }
+.conferenceView { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.videoTile { position: relative; background: #102b42; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; min-width: 0; }
+.videoTile video { width: 100%; height: 100%; object-fit: contain; }
+.tileLabel { position: absolute; bottom: 0; padding: 12px; background: linear-gradient(transparent, #000b); color: white; width: 100%; box-sizing: border-box; z-index: 2; }
+.avatar { position: absolute; inset: 0; display: grid; place-items: center; font-size: 48px; color: #9ebfdb; background: #102b42; }
+.controls { position: sticky; bottom: 16px; width: fit-content; margin: 24px auto 0; display: flex; gap: 12px; padding: 12px 20px; background: white; box-shadow: 0 4px 24px #142a4520; border-radius: 40px; z-index: 3; }
+.chatRoom { width: 290px; flex-shrink: 0; background: white; border-radius: 14px; padding: 20px; box-sizing: border-box; }
+.chattingDisplay { height: 300px; overflow-y: auto; overflow-wrap: anywhere; }
+.chatRoom form { display: flex; gap: 4px; }
+.playButton { position: absolute !important; top: 12px; left: 12px; background: white !important; z-index: 2; }
+.youtube { max-width: 560px; margin: 20px auto; }
+.agent { max-width: 760px; margin: 40px auto; padding: 32px; background: white; border-radius: 18px; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 16px; margin: 24px 0; }
+.metrics > div { padding: 16px; background: #eef4fa; border-radius: 10px; }
+.metrics strong { display: block; font-size: 24px; margin-top: 8px; }
+@media (max-width: 760px) { .page { padding: 16px; } .header { align-items: flex-start; } .lobby { grid-template-columns: 1fr; margin: 24px auto; gap: 20px; } .meetingBody { flex-direction: column; } .conferenceView, .chatRoom { width: 100%; } .controls { gap: 4px; } .agent { padding: 20px; } }
+.audioStatus { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 12px; }
+.audioStatus meter { width: 54px; height: 12px; }
+.audioHelp { margin: 12px 0 20px; background: white; padding: 12px; border-radius: 10px; line-height: 1.5; }
+.audioHelp summary { cursor: pointer; }

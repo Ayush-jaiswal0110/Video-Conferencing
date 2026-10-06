@@ -2,11 +2,11 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import MuiCard from '@mui/material/Card';
-import Checkbox from '@mui/material/Checkbox';
+
 
 import FormLabel from '@mui/material/FormLabel';
 import FormControl from '@mui/material/FormControl';
-import FormControlLabel from '@mui/material/FormControlLabel';
+
 
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -38,15 +38,13 @@ const Card = styled(MuiCard)(({ theme }) => ({
 export default function Authentication() {
 
   // State variables for form inputs and validation
-  const [username, setUsername] = React.useState();
-  const [password, setPassword] = React.useState();
-  const [name, setName] = React.useState();
-  const [error, setError] = React.useState();
-  const [message, setMessage] = React.useState();
-  const [formState, setFormState] = React.useState();// 0 -> Login, 1 -> Signup
+  const [username, setUsername] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [message, setMessage] = React.useState('');
+  const [formState, setFormState] = React.useState(0);// 0 -> Login, 1 -> Signup
   const [open, setOpen] = React.useState(false); // Controls Snackbar visibility
-  const [emailError, setEmailError] = React.useState(false);
-  const [emailErrorMessage, setEmailErrorMessage] = React.useState('');
   const [passwordError, setPasswordError] = React.useState(false);
   const [passwordErrorMessage, setPasswordErrorMessage] = React.useState('');
 
@@ -55,10 +53,13 @@ export default function Authentication() {
 
   // Function to handle authentication logic
   let handleAuth = async () => {
+    if (!username.trim() || !password || (formState === 1 && !name.trim())) { setError('Complete all required fields.'); return; }
+    if (formState === 1 && password.length < 6) { setPasswordError(true); setPasswordErrorMessage('Use at least 6 characters.'); return; }
+    setPasswordError(false); setPasswordErrorMessage('');
     try {
       if (formState === 0) { // Sign In
 
-        let resulr = await handleLogin(username, password)
+        await handleLogin(username, password)
 
       }
       if (formState === 1) { // Sign Up
@@ -78,35 +79,6 @@ export default function Authentication() {
 
     }
   }
-
-  // Function to validate email and password inputs
-  const validateInputs = () => {
-    const email = document.getElementById('email');
-    const password = document.getElementById('password');
-
-    let isValid = true;
-
-    // Email validation
-    if (!email.value || !/\S+@\S+\.\S+/.test(email.value)) {
-      setEmailError(true);
-      setEmailErrorMessage('Please enter a valid email address.');
-      isValid = false;
-    } else {
-      setEmailError(false);
-      setEmailErrorMessage('');
-    }
-    // Password validation
-    if (!password.value || password.value.length < 6) {
-      setPasswordError(true);
-      setPasswordErrorMessage('Password must be at least 6 characters long.');
-      isValid = false;
-    } else {
-      setPasswordError(false);
-      setPasswordErrorMessage('');
-    }
-
-    return isValid;
-  };
 
   return (
     // Authentication Card Component
@@ -134,21 +106,7 @@ export default function Authentication() {
         noValidate
         sx={{ display: 'flex', flexDirection: 'column', width: '100%', gap: 2 }}
       >
-        {/* <TextField
-            error={emailError}
-            helperText={emailErrorMessage}
-            id="email"
-            type="email"
-            name="email"
-            label= "Email"
-            placeholder="your@email.com"
-            autoComplete="email"
-            autoFocus
-            required
-            fullWidth
-            variant="outlined"
-            color={emailError ? 'error' : 'primary'}
-          /> */}
+
         {/* Name Field - Only Shown in Sign Up */}
         {formState === 1 ? <TextField
           margin='normal'

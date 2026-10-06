@@ -17,8 +17,12 @@ function HomeComponent() {
             alert("Please enter a meeting code.");
             return;
         }
-        await addToUserHistory(meetingCode);
-        navigate(`/${meetingCode}`);
+        try {
+            await addToUserHistory(meetingCode.trim());
+            navigate('/' + encodeURIComponent(meetingCode.trim()));
+        } catch (error) {
+            alert(error?.response?.data?.message || 'Unable to join. Please try again.');
+        }
     };
 
     const handleCreateMeeting = async () => {
@@ -87,6 +91,7 @@ function HomeComponent() {
 
                         <div>
                             <Button variant='outlined' onClick={handleCreateMeeting}>Create New Meeting</Button>
+                            <Button onClick={() => navigate('/agent')}>Talk with AI agent</Button>
                         </div>
                     </div>
                 </div>

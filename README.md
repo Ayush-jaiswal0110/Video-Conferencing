@@ -1,35 +1,74 @@
-# Video Conferencing & Shared YouTube Watching App
+# Quikhire video calls and AI voice lab
 
-This is a real-time video conferencing web application with integrated chat and synchronized YouTube video watching feature. Users can join meetings using a meeting code, share video links, chat, and control YouTube playback together.
+React provides the lobby, participant tiles and voice test page. Express/Socket.IO handles room membership, chat, YouTube synchronization and WebRTC signaling. Camera/microphone media travels directly between browsers, not through Socket.IO. MongoDB is used for accounts, history and saved YouTube links. The voice lab connects browser audio to OpenAI Realtime over WebRTC; the backend exchanges the initial SDP without exposing its API key.
 
-## Features
+## Run locally
 
-- Real-time video and audio communication using WebRTC
-- Multi-user video conferencing rooms
-- Text chat within each meeting room
-- Share and watch YouTube videos synchronously with other participants
-- Playback controls (play, pause, seek) synced across users
-- Persistent meeting data with MongoDB
-- Stores meeting codes and shared video links in database
+Use Node.js 22.9 or later. Install dependencies with `npm install` in `backend` and `frontend` if needed.
 
-## Tech Stack
+1. Copy `backend/.env.example` to `backend/.env`. Set `MONGODB_URI` for accounts/history. Guest video rooms work without MongoDB. Set `OPENAI_API_KEY` to enable the AI test. Never place this key in a `REACT_APP_*` variable.
+2. Copy `frontend/.env.example` to `frontend/.env.local`. Its API address defaults to `http://localhost:8000` for local development. Restart the frontend after changing it.
+3. In `backend`, run `npm start` (or `npm run dev`). In `frontend`, run `npm start`.
+4. Open `http://localhost:3000/interview-test` in two browsers. Enter names, choose **Enable camera & microphone**, approve the browser prompts, and **Join meeting**. Use headphones or separate devices to avoid speaker feedback.
+5. Open `http://localhost:3000/agent`, select **Start voice test**, approve microphone access and speak. The example backend setting `ALLOW_GUEST_AGENT=true` permits local loopback tests only. Production requires a signed-in account and ignores that bypass.
 
-- Backend: Node.js, Express, Socket.IO, MongoDB (Mongoose)
-- Frontend: React (or your frontend framework)
-- Real-time communication: WebRTC & Socket.IO
+The backend start command loads `.env`. If using Node directly: `node --env-file-if-exists=.env src/app.js` from `backend`.
 
-## Getting Started
+A database credential was previously embedded in the source. Rotate that password and place the replacement in the ignored backend `.env`. Removing it from the current source does not remove it from Git history.
 
-### Prerequisites
+## Permissions and cross-network calls
 
-- Node.js installed
-- MongoDB database
-- YouTube API key (optional, if you want advanced YouTube features)
+Camera and microphone prompts come from `getUserMedia`, initiated by the user controls. The page explains blocked permissions, missing devices and busy devices. Browser settings must be changed manually if permission was previously blocked. A missing camera does not prevent microphone access. Joining without devices still creates a participant tile and receives other participants' streams.
 
-### Installation
+Use HTTPS in deployment (localhost is also allowed). Plain HTTP on a LAN IP does not qualify for camera/microphone access. When embedding the app in another portal, its iframe and Permissions-Policy must allow camera, microphone and display capture. Screen sharing has a separate browser chooser and shares screen video while retaining microphone audio.
 
-1. Clone the repo:
+Set `REACT_APP_API_URL` to the deployed backend URL and `FRONTEND_ORIGIN` to the frontend origin. Production calls across restrictive NATs/firewalls need a TURN relay; STUN alone cannot guarantee connectivity. Optional `REACT_APP_TURN_URL`, `REACT_APP_TURN_USERNAME`, and `REACT_APP_TURN_CREDENTIAL` settings enable a relay for testing. They are visible in browser code: production should obtain short-lived TURN credentials from an authenticated backend.
 
-   ```bash
-   git clone https://github.com/Ayush-jaiswal0110/Video-Conferencing.git
-   cd Video-Conferencing
+## Main fixes
+
+- Removed the invalid `new MediaStream([black(...args), silence])` fallback. It passed a function instead of an audio track. Empty-device calls now use audio/video transceivers instead of artificial tracks.
+- One Socket.IO connection per call, one normalized room ID, listeners registered before joining, and idempotent server joins.
+- Only the joining browser creates offers. Existing peer connections survive subsequent joins. The answerer binds tracks to the transceivers created by the remote offer.
+- Queue early ICE until remote SDP is set; serialize signaling operations; render participant tiles on membership events using `ontrack` for incoming media.
+- Keep camera/mic ownership scoped to the call, mute using track enablement, preserve microphone audio during screen sharing, and close peers/devices on leaving. Late media events cannot resurrect departed tiles.
+- Room-restricted signaling and bounded chat history; YouTube broadcast works even without a database.
+- Fixed initial sign-in mode, missing-token history handling, stale history effect dependencies and login payload logging.
+
+## AI latency measurements
+
+The voice page uses the [official Realtime WebRTC handshake](https://developers.openai.com/api/docs/guides/voice-webrtc). Configure `OPENAI_REALTIME_MODEL` if your account uses another supported Realtime model; the sample defaults to `gpt-realtime-2.1`.
+
+The page shows connection setup time (including the permission prompt), WebRTC round-trip time when available, and a response-event delay for each turn, plus p50/p95 and JSON export. The response delay runs from client receipt of `input_audio_buffer.speech_stopped` to the matching `output_audio_buffer.started` event. This excludes VAD silence detection and actual speaker playout; it is not a full end-to-end audible latency measurement. Interrupted turns and unmatched greetings are excluded. Audio/transcripts are not persisted by this app.
+
+The endpoint requires authentication in production, bounds session starts per user, times out upstream requests and keeps the provider key on the backend. Provider account limits and spend limits still need configuring before a public rollout.
+
+## Scalability and comparison with Teams
+
+No Teams comparison or production load test has been performed. This is a small-room peer-to-peer mesh: each participant sends media to every other participant. Per-user upload grows with room size; room state currently lives in one backend process. It is suitable for testing small interview calls but is not evidence of Teams-scale capacity.
+
+To evaluate Quikhire, collect at least 30 voice turns per network condition, report p50/p95, errors, disconnects, RTT and packet loss, and repeat with the intended number of concurrent sessions. Compare human-call audio/video on the same devices and network against Teams separately from AI model response delay. For large meetings use an SFU; for multiple signaling instances use shared room state, a Socket.IO adapter and appropriate load-balancer routing. TURN is needed for network coverage, independent of room size.
+
+## Verification
+
+- Frontend: `npm test -- --watchAll=false --runInBand`, then `npm run build` in `frontend`.
+- Backend: `npm test` in `backend`.
+- Browser regression: build the frontend with `REACT_APP_API_URL=http://localhost:8000`, then run `node scripts/verify-browser.cjs` from the repository root. It starts an isolated server on port 8000 (keep that port free), uses simulated camera/mic in headless Chrome and verifies received media bytes/frames, three participants, device-free joining, device toggles, screen replacement, chat, departure and denied permissions. Set `PLAYWRIGHT_MODULE` and `CHROME_PATH` if the tools are installed elsewhere.
+
+Automated browser tests use simulated media; real hardware, cross-network TURN, live provider credentials, account database flows, and load/cost limits need testing in your deployment.
+
+## Microphone troubleshooting and Gemini Live
+
+Meeting sound now uses a separate audio element, independent of camera/video playback. Each participant tile shows input/received sound activity; incoming packet counts alone do not establish audible sound. The **Play sound** button retries browser playback. The local preview stays muted to avoid hearing yourself directly.
+
+For two browsers on one computer, pause YouTube, use headphones, mute one browser's microphone and speak through the other. Check **Sound detected** on both the sending and receiving tiles. If packets arrive but remain **Quiet**, inspect the selected microphone and Windows input level. If sound is detected remotely but inaudible, check **Play sound**, tab sound and Windows volume mixer. A second device is a useful independent check; same-device echo suppression can affect this test.
+
+To test Gemini:
+
+1. Put `GEMINI_API_KEY` in the ignored `backend/.env`; keep `.env.example` free of credentials. `GEMINI_LIVE_MODEL` defaults to `gemini-3.8-live` and can be changed to a Live model available to your project.
+2. Restart the backend, open `/agent`, choose **Gemini Live**, and click **Start voice test**.
+3. Click **Speak**, say a short sentence, then **Finish turn**. The mic is disabled outside your turn. Listen to the response and repeat. **End test** releases the microphone and connection; tests also stop after 9 minutes.
+4. Download measurements for your test. Gemini timing measures sending `activityEnd` after the final PCM chunk through receipt of the first response audio chunk. It excludes speaker playout and uses a different boundary from the OpenAI metric. Neither is a Teams benchmark.
+
+Gemini uses the [Live WebSocket API](https://ai.google.dev/api/live) and [one-use ephemeral tokens](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens). The permanent key stays on the backend. PCM microphone audio streams directly to Google; responses play through Web Audio. API access and quota are controlled by the Google project. OpenAI error messages now distinguish recognized billing/quota errors from temporary rate limits; an unknown HTTP 429 is identified as ambiguous instead of promising that retrying will fix it.
+
+The browser regression also checks mic-only audio energy and advancing unmuted playback, plus a mocked Gemini handshake/audio turn and failure cleanup. Set `TEST_PORT` to use another port, and build with the same `REACT_APP_API_URL` first. No automated check sends real microphone audio or consumes live AI credits.

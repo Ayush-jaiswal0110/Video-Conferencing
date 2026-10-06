@@ -1,19 +1,16 @@
 import { User } from "../models/user.model.js";  // Importing User model
 import httpStatus from "http-status"; // HTTP status codes for better readability
-import bcrypt, {hash} from "bcrypt";// For password hashing and comparison
+import bcrypt from "bcrypt";// For password hashing and comparison
 import crypto from "crypto";// For generating authentication tokens
 import { Meeting } from "../models/meeting.model.js";
 
 // login route controller
 const login = async (req,res) =>{
-    console.log("Headers:", req.headers);
-    console.log("Raw Body:", req.rawBody);   // Debugging raw request body
-    console.log("Parsed Body:", req.body);   // Expected JSON parsed body
 
     const { username, password } = req.body;
 
      // Check if both username and password are provided
-    if(!username || !password){
+    if(typeof username !== 'string' || typeof password !== 'string' || !username || !password){
         return res.status(400).json({message: "please Provide"});
     }
 
@@ -49,6 +46,7 @@ const login = async (req,res) =>{
 // resgister route controller
 const register = async(req,res) =>{
     const {name,username, password} = req.body;
+    if (typeof name !== 'string' || !name.trim() || typeof username !== 'string' || !username.trim() || typeof password !== 'string' || password.length < 6) return res.status(400).json({ message: 'Provide a name, username and password of at least 6 characters.' });
     
     try {
         // Check if the user already exists
@@ -79,9 +77,11 @@ const register = async(req,res) =>{
 
 const getUserHistory = async (req, res) => {
     const { token } = req.query;
+    if (typeof token !== 'string' || !token) return res.status(401).json({ message: 'Sign in required.' });
 
     try {
         const user = await User.findOne({ token: token });
+        if (!user) return res.status(401).json({ message: 'Please sign in again.' });
         const meetings = await Meeting.find({ user_id: user.username })
         res.json(meetings)
     } catch (e) {
@@ -91,9 +91,12 @@ const getUserHistory = async (req, res) => {
 
 const addToHistory = async (req, res) => {
     const { token, meeting_code } = req.body;
+    if (typeof token !== 'string' || !token) return res.status(401).json({ message: 'Sign in required.' });
+    if (typeof meeting_code !== 'string' || !/^[\w-]{1,128}$/.test(meeting_code)) return res.status(400).json({ message: 'Invalid meeting code.' });
 
     try {
         const user = await User.findOne({ token: token });
+        if (!user) return res.status(401).json({ message: 'Please sign in again.' });
 
         const newMeeting = new Meeting({
             user_id: user.username,

@@ -1,4 +1,4 @@
-import { createContext, useState, useContext } from "react";
+import { createContext, useState, useContext, useCallback } from "react";
 import axios from 'axios'
 import { useNavigate } from "react-router-dom";
 import httpStatus from "http-status";
@@ -72,7 +72,7 @@ export const AuthProvider = ({children}) =>{
     }
 
     
-    const getHistoryOfUser = async () => {
+    const getHistoryOfUser = useCallback(async () => {
         try {
             let request = await client.get("/get_all_activity", {
                 params: {
@@ -84,7 +84,7 @@ export const AuthProvider = ({children}) =>{
          (err) {
             throw err;
         }
-    }
+    }, [])
 
     const addToUserHistory = async (meetingCode) => {
         try {
